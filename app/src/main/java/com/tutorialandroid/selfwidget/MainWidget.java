@@ -1,5 +1,6 @@
 package com.tutorialandroid.selfwidget;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
@@ -13,14 +14,19 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.Loader;
 import android.content.UriMatcher;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.location.Address;
+import android.location.Criteria;
 import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationListener;
+import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.telephony.SmsManager;
 import android.util.Log;
 import android.widget.CursorAdapter;
@@ -37,6 +43,8 @@ import java.util.Locale;
 public class MainWidget extends AppWidgetProvider implements LocationListener {
 
 
+    private LocationManager locationManager;
+    private String locationProvider;
     private static final String AUTHORITY = "com.tutorialandroid.selfsecurity";
     private static final String BASE_PATH = "contacts";
     private static final String MESSAGE_PATH = "message";
@@ -49,7 +57,7 @@ public class MainWidget extends AppWidgetProvider implements LocationListener {
     private static final int MESSAGE = 3;
     private static final int MESSAGE_ID = 4;
     private static final UriMatcher uriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
-
+    private boolean status =false;
     static {
         uriMatcher.addURI(AUTHORITY, BASE_PATH, CONTACTS);
         uriMatcher.addURI(AUTHORITY, BASE_PATH + "/#", CONTACT_ID);
@@ -68,6 +76,7 @@ public class MainWidget extends AppWidgetProvider implements LocationListener {
     private Runnable runnable = null;
     private Context mContext;
     private String address;
+    private static final int PERMISSION_REQUEST_CODE = 1;
 
 
     @Override
@@ -82,7 +91,7 @@ public class MainWidget extends AppWidgetProvider implements LocationListener {
             RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.activity_main);
             remoteViews.setOnClickPendingIntent(R.id.start, getPendingSelfIntent(context, START_CLICK));
             remoteViews.setOnClickPendingIntent(R.id.stop, getPendingSelfIntent(context, STOP_CLICK));
-             appWidgetManager.updateAppWidget(widgetId, remoteViews);
+            appWidgetManager.updateAppWidget(widgetId, remoteViews);
         }
     }
 
@@ -95,40 +104,71 @@ public class MainWidget extends AppWidgetProvider implements LocationListener {
     @Override
     public void onReceive(final Context context, Intent intent) {
         super.onReceive(context, intent);//add this line
+        mContext = context;
         int lastItem = 0;
-        ArrayList<Message> list = getMessage(context);
-        if (list != null) {
+        final ArrayList<Message> list = getMessage(context);
+        //final ArrayList<ContactDetails> details = getContacts(context);
+        if (list.size() != 0) {
             lastItem = getMessage(context).size() - 1;
-            time = Integer.getInteger(list.get(lastItem).getTime());
+            time = Integer.parseInt(list.get(lastItem).getTime());
             message = getMessage(context).get(lastItem).getMessage();
+            // Toast.makeText(context, ""+time+message, Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(context, "Please set the alert Message and time", Toast.LENGTH_SHORT).show();
         }
         handler = new android.os.Handler();
-        if (START_CLICK.equals(intent.getAction())) {
-            runnable = new Runnable() {
-                @Override
-                public void run() {
-                    int lastItemNo;
-                    ArrayList<Message> list = getMessage(context);
-                    if (list != null) {
-                        lastItemNo = getMessage(context).size() - 1;
-                        time = Integer.getInteger(list.get(lastItemNo).getTime());
-                        message = getMessage(context).get(lastItemNo).getMessage();
-                        ArrayList<ContactDetails> details = getContacts(context);
-                        for (int i = 0; i < details.size(); i++) {
-                            sendSMS(context, details.get(i).getNumber(), message + " , address=" + address);
-                        }
-                        handler.postDelayed(runnable, time * 60000);
-                    }
-                }
-            };
-            handler.postDelayed(runnable, time * 60000);
-//            for (int i = 0; i < list.size(); i++) {
-//                String message = "say Hi";
-//                String tempMobileNumber = list.get(i).getNumber();
-//                multipleSMS(context,tempMobileNumber, message);
-//            }
 
+        runnable = new Runnable() {
+            @Override
+            public void run() {
+                int lastItemNo = 0;
+//                    ArrayList<Message> list = getMessage(context);
+                Log.w("Widget", "Clicked button11");
+                if (list.size() != 0) {
+                    Log.w("Widget", "Clicked button111");
+                    lastItemNo = list.size() - 1;
+                    time = Integer.parseInt(list.get(lastItemNo).getTime());
+                    message = getMessage(context).get(lastItemNo).getMessage();
+                    Log.d("log....", time + message + " , address=" + address);
+                    getContacts(context);
+//                        for (int i = 0; i < details.size(); i++) {
+//                            Log.d("log....",details.get(i).getNumber()+message + " , address=" + address);
+//                            sendSMS(context, details.get(i).getNumber(), message + " , address=" + address);
+//                        }
+
+
+                }
+                handler.postDelayed(runnable, time * 60000);
+            }
+        };
+
+        locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+        //define the location manager criteria
+        Criteria criteria = new Criteria();
+
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions((Activity) context, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_CODE);
+        } else {
+            locationProvider = locationManager.getBestProvider(criteria, false);
+
+            Location location = locationManager.getLastKnownLocation(locationProvider);
+            //initialize the location
+            if (location != null) {
+
+                onLocationChanged(location);
+            }
+        }
+
+        if (START_CLICK.equals(intent.getAction())) {
+            Log.w("Widget", "Clicked button1" + time);
+            runnable.run();
+            handler.postDelayed(runnable, time * 60000);
+            locationManager.requestLocationUpdates(locationProvider, 400, 1, this);
+            status=true;
         } else if (STOP_CLICK.equals(intent.getAction())) {
+            Log.w("Widget", "Clicked button2");
+            status=false;
+            locationManager.removeUpdates(this);
             handler.removeCallbacks(runnable);
         }
     }
@@ -146,6 +186,12 @@ public class MainWidget extends AppWidgetProvider implements LocationListener {
                 contactDetails.setId(Integer.parseInt(cursor.getString(0)));
                 contactDetails.setName(cursor.getString(1));
                 contactDetails.setNumber(cursor.getString(2));
+                //Log.d("log....", cursor.getString(1)+cursor.getString(2));
+                if (!message.isEmpty()) {
+                    if(status) {
+                        sendSMS(context, cursor.getString(2), message);
+                    }else{}
+                }
             } while (cursor.moveToNext());
         }
         cursor.close();
@@ -228,7 +274,7 @@ public class MainWidget extends AppWidgetProvider implements LocationListener {
             }
         }, new IntentFilter(DELIVERED));
         SmsManager sms = SmsManager.getDefault();
-        sms.sendTextMessage(phoneNumber, null, message, sentPI, deliveredPI);
+        sms.sendTextMessage(phoneNumber, null, message+"address=" + address, sentPI, deliveredPI);
     }
 
 
@@ -310,7 +356,7 @@ public class MainWidget extends AppWidgetProvider implements LocationListener {
         } else {
             address = latitude + "," + longitude;
         }
-        Toast.makeText(mContext, address, Toast.LENGTH_LONG).show();
+       // Toast.makeText(mContext, address, Toast.LENGTH_LONG).show();
     }
 
     @Override
