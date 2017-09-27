@@ -15,6 +15,7 @@ import android.location.LocationManager;
 import android.net.Uri;
 import android.os.CountDownTimer;
 import android.os.Handler;
+import android.os.Looper;
 import android.support.v4.app.ActivityCompat;
 import android.telephony.SmsManager;
 import android.util.Log;
@@ -202,29 +203,15 @@ public class SecurityApplication extends Application {
     public void startTimertask(int time){
         timer = new Timer();
         timer.schedule(new TimerTask() {
+
             @Override
             public void run() {
                 Log.w("startTimersecond", "startTimer");
-                if (ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION)
-                        != PackageManager.PERMISSION_GRANTED) {
-                    // Check Permissions Now
-                    ActivityCompat.requestPermissions((Activity) getApplicationContext(),
-                            new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
-                            REQUEST_LOCATION);
-                } else {
-                    track = new GPSTrack(getApplicationContext());
-                    LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-                    if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                        if (track.canGetLocation()) {
-                            latitude = track.getLatitude();
-                            longitude = track.getLongitude();
-                            address = getAddress(latitude, longitude);
-                            Log.w("onresumeapp", latitude + "llll" + longitude + "");
-                        }
-                    } else {
-                        //  track.showSettingsAlert();
-                    }
+                if (Looper.myLooper() == null) {
+                    Looper.prepare();
+                    getlatlang();
                 }
+
                 int lastItem = 0;
                 ArrayList<Message> list = getMessageDetail(getApplicationContext());
                 if (list != null) {
@@ -280,6 +267,28 @@ public class SecurityApplication extends Application {
     }
     public boolean getTimerStatus() {
         return starttimer;
+    }
+    private void getlatlang(){
+        if (ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Check Permissions Now
+            ActivityCompat.requestPermissions((Activity) getApplicationContext(),
+                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
+                    REQUEST_LOCATION);
+        } else {
+            track = new GPSTrack(getApplicationContext());
+            LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                if (track.canGetLocation()) {
+                    latitude = track.getLatitude();
+                    longitude = track.getLongitude();
+                    address = getAddress(latitude, longitude);
+                    Log.w("onresumeapp", latitude + "llll" + longitude + "");
+                }
+            } else {
+                //  track.showSettingsAlert();
+            }
+        }
     }
     private String getAddress(double latitude, double longitude) {
         Geocoder geocoder;
