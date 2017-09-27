@@ -312,7 +312,7 @@ public class SecurityApplication extends Application {
         if (!Connectivity.isNetworkAvailable(getApplicationContext())){
             return latitude+","+longitude;
         }else{
-            return address + "," + city + "," + state + "," + country;}
+            return address;}
 
     }
 
