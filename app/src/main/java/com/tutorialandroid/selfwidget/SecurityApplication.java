@@ -1,5 +1,6 @@
 package com.tutorialandroid.selfwidget;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.Application;
 import android.app.PendingIntent;
@@ -48,13 +49,16 @@ public class SecurityApplication extends Application {
     private double latitude, longitude;
     private GPSTrack track;
     private static final int REQUEST_LOCATION = 2;
+    private final static int PERMISSION_REQUEST_CODE = 0;
     private Timer timer;
+    private Handler handler;
     private TimerTask task;
 
     @Override
     public void onCreate() {
         super.onCreate();
         appInstance = this;
+        handler=new Handler();
     }
     private void sendToAllContacts(ArrayList<ContactDetails> contactList, String message) {
         for (int i = 0; i < contactList.size(); i++) {
@@ -90,6 +94,12 @@ public class SecurityApplication extends Application {
             lastItem = getMessageDetail(getApplicationContext()).size() - 1;
             if (!starttimer) {
                 starttimer = true;
+                getlatlang();
+                if (!getMessageDetail(getApplicationContext()).get(lastItem).getPhoneNumber().isEmpty()){
+                    makeAcall(getMessageDetail(getApplicationContext()).get(lastItem).getPhoneNumber());
+                }else {
+                    Toast.makeText(this, "Please Set Emergency Number", Toast.LENGTH_SHORT).show();
+                }
 //                sendToAllContacts(getContacts(getApplicationContext()), getMessageDetail(getApplicationContext()).get(lastItem).getMessage());
 //                myCountDownTimer = new MyCountDownTimer(Integer.parseInt(getMessageDetail(getApplicationContext()).get(lastItem).getTime()) * 60000, 1000);
 //                myCountDownTimer.start();
@@ -101,11 +111,29 @@ public class SecurityApplication extends Application {
         }
     }
     public void stopTimer() {
-        Log.w("stopTimervvvvvv", "stoptimer");
+        Log.w("stopTime00 ", "stoptimer");
         if (timer != null) {
             timer.cancel();
             starttimer = false;
             Log.w("stopTimer", "stoptimer");
+        }
+    }
+    public void makeAcall(String s) {
+        Intent intent = new Intent(Intent.ACTION_CALL);
+        intent.setData(Uri.parse("tel:" + s));
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+            requestForCallPermission();
+        } else {
+            startActivity(intent);
+
+        }
+    }
+    public void requestForCallPermission() {
+
+        if (ActivityCompat.shouldShowRequestPermissionRationale((Activity) getApplicationContext(), Manifest.permission.CALL_PHONE)) {
+        } else {
+
+            ActivityCompat.requestPermissions((Activity) getApplicationContext(), new String[]{Manifest.permission.CALL_PHONE}, PERMISSION_REQUEST_CODE);
         }
     }
     public ArrayList<ContactDetails> getContacts(Context context) {
@@ -137,8 +165,9 @@ public class SecurityApplication extends Application {
                 Message message = new Message();
                 message.setTime((cursor.getString(cursor.getColumnIndex(KEY_TIME))));
                 message.setMessage(cursor.getString(cursor.getColumnIndex(KEY_MESSAGE)));
+                message.setMessage(cursor.getString(cursor.getColumnIndex(KEY_NUMBER)));
                 detailses.add(message);
-
+                Log.w("..........",(cursor.getString(cursor.getColumnIndex(KEY_TIME))));
             } while (cursor.moveToNext());
         }
         cursor.close();
@@ -200,71 +229,84 @@ public class SecurityApplication extends Application {
         sms.sendTextMessage(phoneNumber, null, message + "Adress." + address, sentPI, deliveredPI);
     }
 
-    public void startTimertask(int time){
+    public void  startTimertask(int time){
         timer = new Timer();
         timer.schedule(new TimerTask() {
 
             @Override
             public void run() {
-                Log.w("startTimersecond", "startTimer");
-                if (Looper.myLooper() == null) {
-                    Looper.prepare();
+//                Log.w("startTimersecond", "startTimer");
+//                if (Looper.myLooper() == null) {
+//                    Looper.prepare();
+//
+//                }
+//
+//                int lastItem = 0;
+//                ArrayList<Message> list = getMessageDetail(getApplicationContext());
+//                if (list != null) {
+//                    lastItem = getMessageDetail(getApplicationContext()).size() - 1;
+//                    sendToAllContacts(getContacts(getApplicationContext()), getMessageDetail(getApplicationContext()).get(lastItem).getMessage());
+//                }
+//                // myCountDownTimer.start();
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
                     getlatlang();
-                }
-
-                int lastItem = 0;
+                    int lastItem = 0;
                 ArrayList<Message> list = getMessageDetail(getApplicationContext());
                 if (list != null) {
                     lastItem = getMessageDetail(getApplicationContext()).size() - 1;
                     sendToAllContacts(getContacts(getApplicationContext()), getMessageDetail(getApplicationContext()).get(lastItem).getMessage());
                 }
-                // myCountDownTimer.start();
-
-            }
-        },1000, time);
-    }
-
-    public class MyCountDownTimer extends CountDownTimer {
-
-        public MyCountDownTimer(long millisInFuture, long countDownInterval) {
-            super(millisInFuture, countDownInterval);
-        }
-        @Override
-        public void onTick(long millisUntilFinished) {
-            int progress = (int) (millisUntilFinished / 1000);
-            Log.d("timer......." + millisUntilFinished, " ....time" + String.valueOf(progress));
-        }
-        @Override
-        public void onFinish() {
-            if (ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION)
-                    != PackageManager.PERMISSION_GRANTED) {
-                // Check Permissions Now
-                ActivityCompat.requestPermissions((Activity) getApplicationContext(),
-                        new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
-                        REQUEST_LOCATION);
-            } else {
-                track = new GPSTrack(getApplicationContext());
-                LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-                if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                    if (track.canGetLocation()) {
-                        latitude = track.getLatitude();
-                        longitude = track.getLongitude();
-                        address = getAddress(latitude, longitude);
-                        Log.w("onresumeapp", latitude + "llll" + longitude + "");
-                    }
-                } else {
-                    //  track.showSettingsAlert();
                 }
+            });
             }
-            int lastItem = 0;
-            ArrayList<Message> list = getMessageDetail(getApplicationContext());
-            if (list != null) {
-                lastItem = getMessageDetail(getApplicationContext()).size() - 1;
-                sendToAllContacts(getContacts(getApplicationContext()), getMessageDetail(getApplicationContext()).get(lastItem).getMessage());
-            }
-           // myCountDownTimer.start();
-        }
+        },0, time);
     }
+
+
+//    public class MyCountDownTimer extends CountDownTimer {
+//
+//        public MyCountDownTimer(long millisInFuture, long countDownInterval) {
+//            super(millisInFuture, countDownInterval);
+//        }
+//        @Override
+//        public void onTick(long millisUntilFinished) {
+//            int progress = (int) (millisUntilFinished / 1000);
+//            Log.d("timer......." + millisUntilFinished, " ....time" + String.valueOf(progress));
+//        }
+//        @Override
+//        public void onFinish() {
+//            if (ActivityCompat.checkSelfPermission(getApplicationContext(), android.Manifest.permission.ACCESS_FINE_LOCATION)
+//                    != PackageManager.PERMISSION_GRANTED) {
+//                // Check Permissions Now
+//                ActivityCompat.requestPermissions((Activity) getApplicationContext(),
+//                        new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
+//                        REQUEST_LOCATION);
+//            } else {
+//                track = new GPSTrack(getApplicationContext());
+//                LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+//                if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+//                    if (track.canGetLocation()) {
+//                        latitude = track.getLatitude();
+//                        longitude = track.getLongitude();
+//                        address = getAddress(latitude, longitude);
+//                        Log.w("onresumeapp", latitude + "llll" + longitude + "");
+//                    }
+//                } else {
+//                    //  track.showSettingsAlert();
+//                }
+//            }
+//            int lastItem = 0;
+//            ArrayList<Message> list = getMessageDetail(getApplicationContext());
+//            if (list != null) {
+//                lastItem = getMessageDetail(getApplicationContext()).size() - 1;
+//                sendToAllContacts(getContacts(getApplicationContext()), getMessageDetail(getApplicationContext()).get(lastItem).getMessage());
+//            }
+//           // myCountDownTimer.start();
+//        }
+//    }
+
     public boolean getTimerStatus() {
         return starttimer;
     }
