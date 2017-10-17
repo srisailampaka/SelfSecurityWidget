@@ -45,12 +45,14 @@ public class MainWidget extends AppWidgetProvider {
     public void onReceive(final Context context, Intent intent) {
         super.onReceive(context, intent);//add this line
         mContext = context;
+        Intent services=new Intent(context,BackgroundService.class);
         if (START_CLICK.equals(intent.getAction())) {
             Log.w("Widget", "Clicked button1");
             if (!((SecurityApplication) mContext.getApplicationContext()).getTimerStatus()) {
                 mediaPlayer = MediaPlayer.create(mContext, R.raw.alarm);
                 mediaPlayer.start();
                 ((SecurityApplication) mContext.getApplicationContext()).startTimer();
+                context.startService(services);
             } else {
                 if (mediaPlayer != null) {
                     mediaPlayer.stop();
@@ -62,6 +64,7 @@ public class MainWidget extends AppWidgetProvider {
                 mediaPlayer.stop();
             }
             ((SecurityApplication) mContext.getApplicationContext()).stopTimer();
+            context.stopService(services);
         }
     };
 }
